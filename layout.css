@@ -79,3 +79,9 @@ main>h1,.page-subhead{margin-bottom:26px}
 @media(max-width:820px){.station-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){.coffee-flow{gap:10px;padding:20px 0}.coffee-stage{font-size:10px;grid-template-rows:80px auto;gap:12px;flex:1}.coffee-stage img{width:42px;height:42px}.coffee-stage .coffee-machine{width:40px;height:80px}.coffee-arrow{font-size:19px}}
 @media print{.back-link,.recipe-tools,.article-sources{display:none!important}main{padding:0}.coffee-flow{break-inside:avoid}}
+
+/* Home illustration: preparation, cooking and serving share one clear row. */
+.kitchen-scene.kitchen-sequence{display:flex;align-items:center;justify-content:center;gap:10px;width:252px;height:150px;background:none;border:0}
+.kitchen-sequence .kitchen-step{display:flex;align-items:center;justify-content:center;flex:0 0 62px;height:84px;border-bottom:1px solid var(--line)}
+.kitchen-sequence .kitchen-step img{position:static;width:54px;height:64px;object-fit:contain;image-rendering:pixelated}
+.kitchen-sequence .kitchen-arrow{font-size:16px;color:#8d987f;flex:0 0 auto}
