@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f6ef">
+  <meta name="description" content="复杂料理 Mod 玩家 Wiki。查找80道厨房料理和三倍浓缩咖啡的原料与做法，了解厨房工位、切配控火、厨艺等级和职业。">
+  <title>复杂料理 Wiki · 田间厨房手册</title>
+  <link rel="icon" href="assets/tools/pan.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="layout.css">
+  <script src="data.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="site-header">
+    <button id="menu-toggle" class="mobile-menu" aria-expanded="false" aria-controls="sidebar" aria-label="展开导航">☰</button>
+    <a href="#/" class="brand" aria-label="复杂料理 Wiki 首页"><img src="assets/tools/pan.png" width="36" height="36" alt=""><span><strong>复杂料理 <b>WIKI</b></strong></span></a>
+    <div class="header-center"></div>
+    <button id="open-search" class="global-search" aria-haspopup="dialog"><span class="search-symbol" aria-hidden="true"></span><span>搜索菜谱或食材</span><kbd>Ctrl K</kbd></button>
+    <span class="header-version"><i></i>v1.5.1</span>
+  </header>
+  <div class="site-layout">
+    <aside id="sidebar" class="sidebar" aria-label="站点导航">
+      <div class="sidebar-inner">
+        <nav id="primary-nav">
+          <div class="nav-group">
+            <a href="#/" data-nav="home"><span>首页</span></a>
+            <a href="#/start" data-nav="start"><span>新手入门</span></a>
+          </div>
+          <div class="nav-group">
+            <a href="#/recipes" data-nav="recipes"><span>全部菜谱</span><small id="recipe-total">81</small></a>
+            <a href="#/stations" data-nav="stations"><span>厨具与工位</span></a>
+            <a href="#/techniques" data-nav="techniques"><span>切配与控火</span></a>
+          </div>
+          <div class="nav-group">
+            <a href="#/quality" data-nav="quality"><span>料理品质</span></a>
+            <a href="#/skills" data-nav="skills"><span>厨艺与职业</span></a>
+            <a href="#/notebook" data-nav="notebook"><span>我的料理簿</span><small id="notebook-count">0</small></a>
+          </div>
+          <div class="nav-group">
+            <a href="#/install" data-nav="install"><span>安装与常见问题</span></a>
+          </div>
+        </nav>
+      </div>
+    </aside>
+    <main id="main" tabindex="-1"></main>
+    <aside id="page-rail" class="page-rail" aria-label="本页导航"></aside>
+  </div>
+  <div id="nav-shade" class="nav-shade" hidden></div>
+  <dialog id="search-dialog" aria-labelledby="search-title">
+    <div class="search-dialog-head"><h2 id="search-title">搜索</h2><button class="plain-button" id="close-search" aria-label="关闭搜索">关闭 <kbd>Esc</kbd></button></div>
+    <label class="search-field"><span class="search-symbol" aria-hidden="true"></span><input id="dialog-query" type="search" placeholder="菜名、食材、厨具……" autocomplete="off" aria-label="搜索手册"></label>
+    <div id="search-results" aria-live="polite"></div>
+  </dialog>
+  <dialog id="image-dialog" aria-label="菜谱工序图放大预览"><button id="close-image" class="plain-button">关闭预览 <kbd>Esc</kbd></button><img id="large-diagram" alt="菜谱工序图"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
