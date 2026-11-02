@@ -568,6 +568,14 @@ SpaceCore 发布页|SpaceCore download page
 厨艺 经验 升级 职业 风味 节俭 食养 主厨 管家 丰盛|cooking experience xp levels professions flavor thrifty nutrition signature manager generous
 安装 SMAPI SpaceCore 看不到 无法 放不进 装盘 联机 咖啡 三倍浓缩咖啡 下载|install SMAPI SpaceCore missing cannot add plate multiplayer coffee espresso download
 `);
+  // Cards omit 任意 (Any); register the same shortened labels used by the renderer.
+  for (const recipe of window.WIKI_DATA.recipes) {
+    for (const ingredient of recipe.ingredients) {
+      if (ingredient.name.startsWith('任意') && entries.has(ingredient.name)) {
+        entries.set(ingredient.name.replace('任意', ''), entries.get(ingredient.name).replace(/^Any /, ''));
+      }
+    }
+  }
   // Recipe names use the game's existing English catalog instead of literal translations.
   for (const recipe of window.WIKI_DATA.recipes) entries.set(recipe.name, recipe.english);
   // Detail pages remove the final full stop when splitting methods into steps.
