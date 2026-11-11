@@ -101,3 +101,10 @@ html[lang="en"] .global-search{min-width:0}
 @media(max-width:820px){.site-header{gap:10px}.language-switch select{max-width:86px}.header-version{display:none}html[lang="en"] .brand{width:auto;min-width:0}html[lang="en"] .brand strong{font-size:14px}}
 @media(max-width:520px){.language-switch select{font-size:11px;padding:5px 3px}.site-header .global-search{margin-left:auto}html[lang="en"] .brand strong{font-size:12px}}
 @media print{.language-switch{display:none}}
+/* Required dependencies are aligned rows, without extra badges or captions. */
+.dependency-list{list-style:none;padding:0;margin:20px 0}
+.dependency-list li{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,1fr);gap:18px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
+.dependency-list a{color:var(--green)}
+.dependency-list span{color:var(--muted)}
+.article-table td{overflow-wrap:anywhere}
+@media(max-width:600px){.dependency-list li{grid-template-columns:1fr;gap:3px}.article-table{font-size:11px}}
