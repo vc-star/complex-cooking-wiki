@@ -1,17 +1,20 @@
 'use strict';
 const DATA = window.WIKI_DATA;
 // Public release version is independent of the installed development DLL version.
-const RELEASE_VERSION = '1.3.0';
+const RELEASE_VERSION = '1.4.0';
 const copy = (zh, en) => window.WIKI_I18N.language === 'en' ? en : zh;
 const localizedSearchText = value => `${value} ${window.WIKI_I18N.translate(value)}`;
 const RECIPES = DATA.recipes;
+const PACKS = [{id:'all',zh:'全部',en:'All'},{id:'base',zh:'原版',en:'Base Game'},{id:'sve',zh:'SVE',en:'SVE'},{id:'rsv',zh:'RSV',en:'RSV'}];
+const recipeName = r => copy(r.name,r.english);
+const ingredientName = i => copy(i.name,i.english||window.WIKI_I18N.translate(i.name));
 const byId = new Map(RECIPES.map(r => [r.id, r]));
 const $ = (s, root = document) => root.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url = (id, value) => `#/${id}${value ? '?' + new URLSearchParams(value).toString() : ''}`;
 const recipeUrl = id => `#/recipe/${encodeURIComponent(id)}`;
 const img = (src, alt = '', cls = '', extra = '') => `<img src="${esc(src)}" alt="${esc(alt)}"${cls ? ` class="${cls}"` : ''} loading="lazy" ${extra}>`;
-const textIngredients = r => r.ingredients.map(i => `${i.name.replace('任意', '')}${i.quantity > 1 ? '×' + i.quantity : ''}`).join(' · ');
+const textIngredients = r => r.ingredients.map(i => `${copy(i.name.replace('任意',''),i.english||window.WIKI_I18N.translate(i.name.replace('任意','')))}${i.quantity>1?'×'+i.quantity:''}`).join(' · ');
 const recipeLink = (id, label) => {const r = byId.get(id); return r ? `<a href="${recipeUrl(id)}">${esc(label || r.name)}</a>` : '';};
 const TOOL_ICONS = {'砧板':'board','搅拌机':'mixer','平底锅':'pan','深锅':'pot','烤箱':'oven','蒸屉':'steamer','冰箱':'mixing_bowl','咖啡机':'coffee_maker'};
 const TOOL_NAMES = Object.keys(TOOL_ICONS);
@@ -26,7 +29,7 @@ let cooked = readSet('cc-wiki-cooked-v1');
 let notebookTab = 'saved';
 let listView = 'grid';
 let currentPage = 'home';
-let catalogState = {q:'',tool:'全部',sort:'number'};
+let catalogState = {q:'',tool:'全部',pack:'all',sort:'number'};
 let toastTimer;
 function toast(message) {const el = $('#toast');el.textContent = message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer = setTimeout(() => el.classList.remove('visible'), 2400);}
 function persist(key, set) {try {localStorage.setItem(key, JSON.stringify([...set]));return true;} catch {toast('浏览器未允许保存，当前记录仅在本次页面中有效。');return false;}}
@@ -50,11 +53,63 @@ function homePage() {
 function saveButton(r) {return `<button class="bookmark-small${saved.has(r.id)?' saved':''}" data-action="save" data-id="${r.id}" aria-label="${saved.has(r.id)?'取消收藏':'收藏'}${r.name}" aria-pressed="${saved.has(r.id)}">${saved.has(r.id)?'★':'☆'}</button>`;}
 function gridItems(recipes) {return `<div class="recipe-grid">${recipes.map(r => `<article class="recipe-item">${saveButton(r)}${cooked.has(r.id)?'<span class="cooked-mark" aria-label="已做过">✓</span>':''}<a href="${recipeUrl(r.id)}">${img(r.icon,r.name)}<h3>${esc(r.name)}</h3><div class="ingredients-summary" title="${esc(textIngredients(r))}">${esc(textIngredients(r))}</div></a></article>`).join('')}</div>`;}
 function tableItems(recipes) {return `<table class="recipe-table"><thead><tr><th scope="col">料理</th><th scope="col">原料</th><th scope="col" class="table-tools">使用工位</th><th scope="col">收藏</th></tr></thead><tbody>${recipes.map(r => `<tr><td><a href="${recipeUrl(r.id)}">${img(r.icon,'')}${esc(r.name)}${cooked.has(r.id)?' ✓':''}</a></td><td class="table-ingredients">${esc(textIngredients(r))}</td><td class="table-tools">${esc(r.tools.join(' / ')||'盘内组合')}</td><td>${saveButton(r)}</td></tr>`).join('')}</tbody></table>`;}
-function filteredRecipes() {const q = catalogState.q.trim().toLowerCase();let items = RECIPES.filter(r => (!q || [r.name,r.english,r.instructions,...r.ingredients.map(i=>i.name),...r.tools].map(localizedSearchText).join(' ').toLowerCase().includes(q)) && (catalogState.tool==='全部' || r.tools.includes(catalogState.tool)));if(catalogState.sort==='name')items.sort((a,b)=>window.WIKI_I18N.translate(a.name).localeCompare(window.WIKI_I18N.translate(b.name),window.WIKI_I18N.language==='en'?'en':'zh-CN'));if(catalogState.sort==='ingredients')items.sort((a,b)=>a.ingredients.length-b.ingredients.length||a.number-b.number);return items;}
-function recipesPage(params) {catalogState = {q:params.get('q')||'',tool:TOOL_NAMES.includes(params.get('tool'))?params.get('tool'):'全部',sort:'number'};return `${crumbs('全部菜谱')}<div class="page-subhead"><h1>全部菜谱</h1></div><div class="recipe-toolbar"><label class="inline-search"><span class="search-symbol" aria-hidden="true"></span><input id="recipe-query" type="search" value="${esc(catalogState.q)}" placeholder="搜菜名、原料或工位" aria-label="筛选菜谱"></label><select id="recipe-sort" class="sort-select" aria-label="菜谱排序"><option value="number">按原作顺序</option><option value="ingredients">原料少的在前</option><option value="name">按名称排序</option></select></div><div class="filter-tabs" role="group" aria-label="按工位筛选">${['全部',...TOOL_NAMES].map(t => `<button data-filter="${t}" class="${catalogState.tool===t?'active':''}" aria-pressed="${catalogState.tool===t}">${t}<small>${t==='全部'?RECIPES.length:RECIPES.filter(r=>r.tools.includes(t)).length}</small></button>`).join('')}</div><div class="result-summary"><span id="result-count" aria-live="polite"></span><div class="view-controls" aria-label="显示方式"><button data-view="grid" class="${listView==='grid'?'active':''}" aria-pressed="${listView==='grid'}">图鉴</button><button data-view="table" class="${listView==='table'?'active':''}" aria-pressed="${listView==='table'}">列表</button></div></div><div id="catalog-results"></div>`;}
-function updateCatalog() {const el = $('#catalog-results');if(!el)return;const items=filteredRecipes();$('#result-count').textContent = `${items.length} 道料理`;el.innerHTML=items.length?(listView==='table'?tableItems(items):gridItems(items)):`<div class="empty-state">${img('assets/tools/plate.png','')}<h2>没有找到菜谱</h2><button class="outline-button" data-action="clear-filters">清除筛选</button></div>`;document.querySelectorAll('[data-filter]').forEach(b=>{b.classList.toggle('active',b.dataset.filter===catalogState.tool);b.setAttribute('aria-pressed',String(b.dataset.filter===catalogState.tool));});document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===listView);b.setAttribute('aria-pressed',String(b.dataset.view===listView));});const params={};if(catalogState.q)params.q=catalogState.q;if(catalogState.tool!=='全部')params.tool=catalogState.tool;history.replaceState(null,'',url('recipes',params));}
+function filteredRecipes() {
+  const q = catalogState.q.trim().toLowerCase();
+  const items = RECIPES.filter(r =>
+    (catalogState.pack === 'all' || (r.pack || 'base') === catalogState.pack) &&
+    (catalogState.tool === '全部' || r.tools.includes(catalogState.tool)) &&
+    (!q || [r.name, r.english, r.instructions, r.instructionsEnglish, r.pack,
+      ...r.ingredients.flatMap(i => [i.name, i.english || '']), ...r.tools]
+      .map(localizedSearchText).join(' ').toLowerCase().includes(q)));
+  if (catalogState.sort === 'name') items.sort((a,b) => recipeName(a).localeCompare(recipeName(b),window.WIKI_I18N.language === 'en' ? 'en' : 'zh-CN'));
+  if (catalogState.sort === 'ingredients') items.sort((a,b) => a.ingredients.length-b.ingredients.length || a.number-b.number);
+  return items;
+}
 
-function detailPage(r) {if(r.kind==='coffee')return coffeePage(r);const steps=copy(r.instructions,r.instructionsEnglish||r.instructions).replace(/[。.]$/,'').split(/\s*→\s*/);const related=RECIPES.filter(x=>x.id!==r.id&&x.ingredients.some(i=>r.ingredients.some(ri=>ri.id===i.id))).sort((a,b)=>a.ingredients.length-b.ingredients.length).slice(0,4);return `${crumbs(r.name,{href:'#/recipes',label:'全部菜谱'})}<div class="recipe-detail-top">${img(r.icon,r.name,'detail-icon')}<div><h1>${esc(r.name)}</h1></div></div><div class="detail-actions"><button class="outline-button ${saved.has(r.id)?'on':''}" data-action="save" data-id="${r.id}" aria-pressed="${saved.has(r.id)}">${saved.has(r.id)?'★ 已收藏':'☆ 收藏菜谱'}</button><button class="outline-button ${cooked.has(r.id)?'on':''}" data-action="cook" data-id="${r.id}" aria-pressed="${cooked.has(r.id)}">${cooked.has(r.id)?'✓ 已经做过':'记为做过了'}</button><button class="plain-button" data-action="print">打印这道菜 ↗</button></div><ul class="recipe-tools" aria-label="使用工位">${r.tools.map(t=>`<li><a href="${url('recipes',{tool:t})}">${img(toolImage(t),'')}${t}</a></li>`).join('')}</ul>${section('ingredients','01','食材',`<div class="ingredient-list">${r.ingredients.map(i=>`<a class="ingredient" href="${url('recipes',{q:i.name})}" title="查找也使用${i.name}的料理">${i.icon?img(i.icon,i.name):''}<span>${esc(i.name)}<small>× ${i.quantity}</small></span></a>`).join('')}</div>`)}${section('method','02','做法',`<ol class="step-list">${steps.map(s=>`<li>${esc(s.replace(/[。.]$/,''))}</li>`).join('')}</ol><div><span class="key-note"><kbd>左键</kbd>拿放与判定</span><span class="key-note"><kbd>${copy('加工键','Cooking key')}</kbd>${copy('默认 Q；小游戏或自动加工','Default Q; minigame or automatic processing')}</span></div>${r.id==='plum_pudding'?'<p class="recipe-note">最后一份取完时返还空盆；背包满时空盆会落在附近。</p>':''}`)}${section('diagram','03','工序图',`<figure class="diagram-box"><button class="diagram-button" data-diagram="${r.diagram}" data-name="${r.name}" aria-label="放大${r.name}工序图">${img(r.diagram,`${r.name}完整制作工序图`,'',`style="width:${r.diagramWidth*2}px"`)}</button></figure>`)}${related.length?section('related','04','也可以做',`<div class="related-recipes">${related.map(x=>`<a href="${recipeUrl(x.id)}">${img(x.icon,'')}${x.name} ↗</a>`).join('')}</div>`):''}`;}
+function recipesPage(params) {
+  const pack = params.get('pack');
+  catalogState = {q:params.get('q') || '', tool:TOOL_NAMES.includes(params.get('tool')) ? params.get('tool') : '全部',
+    pack:PACKS.some(p => p.id === pack) ? pack : 'all', sort:'number'};
+  return `<div class="page-subhead"><h1>全部菜谱</h1></div>
+    <div class="recipe-toolbar"><label class="inline-search"><span class="search-symbol" aria-hidden="true"></span><input id="recipe-query" type="search" value="${esc(catalogState.q)}" placeholder="搜菜名、原料或工位" aria-label="筛选菜谱"></label>
+      <select id="recipe-sort" class="sort-select" aria-label="菜谱排序"><option value="number">${copy('按收录顺序','Catalog order')}</option><option value="ingredients">原料少的在前</option><option value="name">按名称排序</option></select></div>
+    <div class="filter-tabs pack-tabs" role="group" aria-label="${copy('按内容筛选','Filter by content')}">${PACKS.map(p=>`<button data-pack="${p.id}" aria-pressed="${catalogState.pack===p.id}" class="${catalogState.pack===p.id?'active':''}">${copy(p.zh,p.en)}<small>${p.id==='all'?RECIPES.length:RECIPES.filter(r=>(r.pack||'base')===p.id).length}</small></button>`).join('')}</div>
+    <div class="filter-tabs" role="group" aria-label="按工位筛选">${['全部',...TOOL_NAMES].map(t=>`<button data-filter="${t}" class="${catalogState.tool===t?'active':''}" aria-pressed="${catalogState.tool===t}">${t}<small data-tool-count="${t}"></small></button>`).join('')}</div>
+    <div class="result-summary"><span id="result-count" aria-live="polite"></span><div class="view-controls" aria-label="显示方式"><button data-view="grid" class="${listView==='grid'?'active':''}" aria-pressed="${listView==='grid'}">图鉴</button><button data-view="table" class="${listView==='table'?'active':''}" aria-pressed="${listView==='table'}">列表</button></div></div><div id="catalog-results"></div>`;
+}
+
+function updateCatalog() {
+  const el = $('#catalog-results'); if (!el) return;
+  const items = filteredRecipes();
+  $('#result-count').textContent = copy(`${items.length} 道料理`,`${items.length} recipes`);
+  el.innerHTML = items.length ? (listView==='table' ? tableItems(items) : gridItems(items)) : `<div class="empty-state">${img('assets/tools/plate.png','')}<h2>没有找到菜谱</h2><button class="outline-button" data-action="clear-filters">清除筛选</button></div>`;
+  const packRecipes = RECIPES.filter(r=>catalogState.pack==='all'||(r.pack||'base')===catalogState.pack);
+  document.querySelectorAll('[data-tool-count]').forEach(el=>{el.textContent=el.dataset.toolCount==='全部'?packRecipes.length:packRecipes.filter(r=>r.tools.includes(el.dataset.toolCount)).length;});
+  for (const [attribute,active] of [['filter',catalogState.tool],['pack',catalogState.pack],['view',listView]]) {
+    document.querySelectorAll(`[data-${attribute}]`).forEach(b=>{const selected=b.dataset[attribute]===active;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));});
+  }
+  const params={}; if(catalogState.q)params.q=catalogState.q;if(catalogState.tool!=='全部')params.tool=catalogState.tool;if(catalogState.pack!=='all')params.pack=catalogState.pack;
+  history.replaceState(null,'',url('recipes',params));
+}
+
+function detailPage(r) {
+  if(r.kind==='coffee') return coffeePage(r);
+  const name=recipeName(r), diagram=copy(r.diagram,r.diagramEnglish||r.diagram);
+  const steps=copy(r.instructions,r.instructionsEnglish||r.instructions).replace(/[。.]$/,'').split(/\s*→\s*/);
+  const related=RECIPES.filter(x=>x.id!==r.id&&x.ingredients.some(i=>r.ingredients.some(ri=>ri.id===i.id))).sort((a,b)=>a.ingredients.length-b.ingredients.length).slice(0,4);
+  const context=[];
+  if(r.pack==='sve')context.push(copy('需要 SVE 1.15.11 的对应配方','Requires the matching SVE 1.15.11 recipe'));
+  if(r.pack==='rsv')context.push(copy('需要 RSV 2.5.17 的对应配方','Requires the matching RSV 2.5.17 recipe'));
+  if((r.outputQuantity||1)>1)context.push(copy(`每批 ${r.outputQuantity} 份`,`Yields ${r.outputQuantity} per batch`));
+  return `${crumbs(name,{href:'#/recipes',label:copy('全部菜谱','All Recipes')})}
+    <div class="recipe-detail-top">${img(r.icon,name,'detail-icon')}<div><h1>${esc(name)}</h1>${context.length?`<p class="recipe-context">${esc(context.join(' · '))}</p>`:''}</div></div>
+    <div class="detail-actions"><button class="outline-button ${saved.has(r.id)?'on':''}" data-action="save" data-id="${r.id}" aria-pressed="${saved.has(r.id)}">${saved.has(r.id)?'★ 已收藏':'☆ 收藏菜谱'}</button><button class="outline-button ${cooked.has(r.id)?'on':''}" data-action="cook" data-id="${r.id}" aria-pressed="${cooked.has(r.id)}">${cooked.has(r.id)?'✓ 已经做过':'记为做过了'}</button><button class="plain-button" data-action="print">打印这道菜 ↗</button></div>
+    <ul class="recipe-tools" aria-label="使用工位">${r.tools.map(t=>`<li><a href="${url('recipes',{tool:t,pack:r.pack||'base'})}">${img(toolImage(t),'')}${t}</a></li>`).join('')}</ul>
+    ${section('ingredients','','食材',`<div class="ingredient-list">${r.ingredients.map(i=>`<a class="ingredient" href="${url('recipes',{q:ingredientName(i)})}" title="${esc(copy('查找也使用'+i.name+'的料理','Find recipes using '+ingredientName(i)))}">${i.icon?img(i.icon,ingredientName(i)):''}<span>${esc(ingredientName(i))}<small>× ${i.quantity}</small></span></a>`).join('')}</div>`)}
+    ${section('method','','做法',`<ol class="step-list">${steps.map(s=>`<li>${esc(s.replace(/[。.]$/,''))}</li>`).join('')}</ol><div><span class="key-note"><kbd>左键</kbd>拿放与判定</span><span class="key-note"><kbd>${copy('加工键','Cooking key')}</kbd>${copy('默认 Q；小游戏或自动加工','Default Q; minigame or automatic processing')}</span></div>${r.id==='plum_pudding'?'<p class="recipe-note">最后一份取完时返还空盆；背包满时空盆会落在附近。</p>':''}${r.pack==='rsv'&&r.sourceNumber===34?`<p class="recipe-note">${copy('出现同料选择时，选“山脊马赛克蛋糕”；取消选择不会消耗或转移材料。','If prompted to choose between dishes with the same ingredients, select Ridge Mosaic Cake. Cancelling does not consume or transfer ingredients.')}</p>`:''}`)}
+    ${section('diagram','','工序图',`<figure class="diagram-box"><button class="diagram-button" data-diagram="${diagram}" data-name="${esc(name)}" aria-label="${esc(copy('放大'+name+'工序图','Enlarge '+name+' process diagram'))}">${img(diagram,copy(name+'完整制作工序图',name+' complete process diagram'),'',`style="width:${copy(r.diagramWidth,r.diagramEnglishWidth||r.diagramWidth)*2}px"`)}</button></figure>`)}
+    ${related.length?section('related','','也可以做',`<div class="related-recipes">${related.map(x=>`<a href="${recipeUrl(x.id)}">${img(x.icon,'')}${esc(recipeName(x))} ↗</a>`).join('')}</div>`):''}`;
+}
 
 function coffeePage(r) {
   const ingredient=r.ingredients[0];
@@ -79,7 +134,7 @@ function startPage() {
       <li><div><strong>${copy('按加工键，默认 Q。','Press the cooking key, Q by default.')}</strong><p>${copy('小游戏开启时，指针进入绿区后点击左键；关闭时自动加热，默认 6 秒。开关和按键都在 GMCM → 复杂料理中设置。','With minigames on, left-click as the pointer enters green. With them off, heating is automatic and takes 6 seconds by default. Change either setting in GMCM → Complex Cooking.')}</p></div></li>
       <li><div><strong>${copy('完成后，用空盘接取。','Collect the finished dish with an empty plate.')}</strong><p>${copy('从盘架取盘，手持空盘左键点击平底锅。空盘无限取用，无需清洗。','Take a plate from the rack, hold it, and left-click the pan. Plates are unlimited and need no washing.')}</p></div></li>
     </ol><a class="solid-button" href="${recipeUrl('fried_egg')}">${copy('打开煎鸡蛋菜谱 ↗','Open Fried Egg recipe ↗')}</a>`)}
-  ${section('controls','','操作', table(
+  ${section('controls','','操作', `<p>${copy('按住左键约 0.4 秒，可连续投入手中这一叠材料或取出砧板上的切配物；松手、移开光标、切换物品、开始加工或背包满时停止。容器搬运与盘内组装仍逐次操作。','Hold left click for about 0.4 seconds to add ingredients from the held stack or collect prepared board items repeatedly. Release, move the cursor, change items, start processing, or fill the inventory to stop. Move containers and assemble plates one action at a time.')}</p>` + table(
     [copy('按键','Control'),copy('作用','Action')], [
       [copy('左键','Left click'),copy('投料、拿放容器、装盘；小游戏内判定','Add ingredients, move containers, plate food; confirm a minigame attempt')],
       [copy('加工键 · 默认 Q','Cooking key · Default Q'),copy('靠近工位开始加工；小游戏内暂停／继续','Start at a nearby station; pause / resume inside a minigame')],
@@ -198,7 +253,7 @@ function installPage() {
       <li><a href="https://www.nexusmods.com/stardewvalley/mods/5098" target="_blank" rel="noopener noreferrer">Generic Mod Config Menu ↗</a><span>1.16.0+</span></li>
     </ul>
     <p>${copy('适用于星露谷物语 1.6.15。装好以上必装前置，将含 manifest.json 的 ComplexCooking 文件夹放进 Mods，通过 SMAPI 启动。','For Stardew Valley 1.6.15. Install all required dependencies above, place the ComplexCooking folder containing manifest.json in Mods, and launch through SMAPI.')}</p>
-    <p>${copy('更新前退出游戏并备份存档，再替换旧 ComplexCooking 文件夹；保留 config.json 可沿用设置。所有联机玩家统一使用 1.3.0，并安装一致版本的依赖。','Exit the game and back up your save before replacing the old ComplexCooking folder. Keep config.json to retain settings. Every multiplayer participant needs 1.3.0 and matching dependencies.')}</p>
+    <p>${copy('更新前退出游戏并备份存档，再替换旧 ComplexCooking 文件夹；保留 config.json 可沿用设置。所有联机玩家统一使用 1.4.0，并安装一致版本的依赖。','Exit the game and back up your save before replacing the old ComplexCooking folder. Keep config.json to retain settings. Every multiplayer participant needs 1.4.0 and matching dependencies.')}</p>
   `)}
   ${section('settings','','设置',`
     <p>${copy('打开 GMCM → 复杂料理。','Open GMCM → Complex Cooking.')}</p>
@@ -210,6 +265,13 @@ function installPage() {
     ])}
   `)}
   ${section('compatibility','','可选兼容',`
+    
+    <details id="sve-rsv"><summary>SVE · RSV</summary>
+      <p>${copy('已接入 SVE 1.15.11 的 26 道菜与 RSV 2.5.17 的 46 道菜。两个内容包都可选，分别按各自要求安装前置；只安装其中一个也可使用对应菜谱。','Supports 26 recipes from SVE 1.15.11 and 46 from RSV 2.5.17. Both packs are optional; install their own required dependencies. Either pack can be used on its own.')}</p>
+      <p>${copy('按图在工位投料和加工，不必先选菜。沿用同一套手动／自动加工、品质、经验和职业规则；菜谱解锁仍由 SVE 或 RSV 决定。','Follow the diagrams at the stations without preselecting a dish. The same manual / automatic processing, quality, XP, and professions apply. SVE or RSV still controls recipe unlocks.')}</p>
+      <p>${copy('材料、数量和成品必须与已适配配方一致；被其他 Mod 改动的菜谱回到原制作方式，其余菜谱不受影响。联机玩家需安装一致版本的相关内容包。','Ingredients, quantities, and output must match the supported recipe. Altered recipes fall back to their original crafting method without affecting other recipes. Multiplayer participants need matching versions of the relevant packs.')}</p>
+      <a class="text-link" href="#/recipes?pack=sve">SVE · 26 →</a>　<a class="text-link" href="#/recipes?pack=rsv">RSV · 46 →</a>
+    </details>
     <details id="farmers-store"><summary>${copy('农夫小店 1.0.3','Farmer’s Store 1.0.3')}</summary>
       <p>${copy('进入目标建筑，在 GMCM → 复杂料理 → 当前建筑厨房选择系统；默认使用农夫小店厨房。选择复杂料理后，农舍使用自带厨房，其他室内建筑可摆放购买的工位。','Enter the building and choose its kitchen in GMCM → Complex Cooking → Current Building Kitchen. Farmer’s Store is the default. Choosing Complex Cooking uses the built-in farmhouse kitchen and allows purchased stations in other indoor buildings.')}</p>
       ${table([copy('购买处','Vendor'),copy('设备','Equipment')],[
@@ -222,7 +284,7 @@ function installPage() {
     </details>
     <details><summary>Better Crafting 2.18.0</summary><p>${copy('开启 ReplaceCooking 后，支持的菜谱打开复杂料理指南并在工位制作；其他菜谱沿用原制作规则。两套收藏分别保存。','With ReplaceCooking enabled, supported recipes open the Complex Cooking guide and are made at stations. Other recipes keep their original crafting rules. The two favorites systems are stored separately.')}</p></details>
     <details><summary>Restauranteer 1.1.1</summary><p>${copy('在默认酒吧厨房制作订单，冰箱提供原料，前方吧台有七格置物位。点单与报酬由 Restauranteer 管理；需启用默认酒吧地图改动并满足原事件条件。','Cook orders in the default saloon kitchen, using fridge ingredients and seven counter spaces at the front bar. Restauranteer handles orders and rewards. Enable its default saloon map changes and meet its event requirements.')}</p></details>
-    <details><summary>${copy('厨房美化与新增菜谱','Kitchen retextures & added recipes')}</summary><p>${copy('台面跟随当前农舍贴图。使用原版厨房素材的房型可自动识别，也可用布局编辑器调整；自定义酒吧与姜岛地图需要单独适配。','Counters follow the current farmhouse texture. Layouts using vanilla kitchen tiles can be detected automatically or adjusted in the editor. Custom saloon and Island Farmhouse maps need separate compatibility work.')}</p><p>${copy('新增或修改的菜谱按实际材料、解锁、产量与制作规则处理，不自动获得本 Mod 的小游戏或手工厨艺经验。本 Wiki 的 81 项配方对应原版配方。','Added or modified recipes keep their actual ingredients, unlocks, yields, and crafting rules. They do not automatically gain this mod’s minigames or manual Cooking XP. This wiki’s 81 recipes describe the vanilla recipes.')}</p></details>
+    <details><summary>${copy('厨房美化与新增菜谱','Kitchen retextures & added recipes')}</summary><p>${copy('台面跟随当前农舍贴图。使用原版厨房素材的房型可自动识别，也可用布局编辑器调整；自定义酒吧与姜岛地图需要单独适配。','Counters follow the current farmhouse texture. Layouts using vanilla kitchen tiles can be detected automatically or adjusted in the editor. Custom saloon and Island Farmhouse maps need separate compatibility work.')}</p><p>${copy('未接入或被修改的外部菜谱沿用各自的材料、解锁、产量和制作规则；不会因为同名、同料或同成品而被接管。','Unregistered or altered external recipes keep their own ingredients, unlocks, yields, and crafting rules. Matching a name, ingredient list, or output does not make them use our process.')}</p></details>
   `)}
   ${section('faq','','常见问题',`
     <details><summary>${copy('为什么厨房里没有新工位？','Why are the new stations missing?')}</summary><p>${copy('确认已安装全部前置、标题界面的“启用 Mod”已开启，并至少升级一次房屋。移开挡住工位的家具；安装农夫小店时，还要确认当前建筑选择了复杂料理厨房。','Check all dependencies, Enable Mod on the title screen, and the first house upgrade. Clear furniture from station spaces. With Farmer’s Store installed, select the Complex Cooking kitchen for the current building.')}</p></details>
@@ -248,12 +310,19 @@ function notFound() {return `${crumbs('页面未找到')}<div class="not-found">
 
 const searchDocs=[
 {name:'新手入门',terms:'入门 开始 操作 getting started beginner first egg controls',href:'#/start'},
+{name:'SVE · RSV',terms:'SVE RSV 星露谷扩展 岭侧村 里奇赛德村 expanded ridgeside village compatible optional',href:'#/install#sve-rsv'},
 {name:'厨具与工位',terms:'厨房 布局 姜岛 盘架 工位 农舍 kitchen layout island farmhouse rack stations tools',href:'#/stations'},
 {name:'切配与控火',terms:'小游戏 自动 加工 关闭 Q 时间 暂停 minigame automatic prep heat cooking key pause timer',href:'#/techniques'},
 {name:'料理品质',terms:'自动 品质 铱星 概率 调味料 售价 计算 quality automatic probability iridium price calculator seasoning',href:'#/quality'},
 {name:'厨艺与职业',terms:'厨艺 经验 升级 职业 cooking xp experience level profession',href:'#/skills'},
 {name:'安装与常见问题',terms:'设置 前置 依赖 GMCM SMAPI SpaceCore 兼容 农夫小店 总开关 install update settings dependencies compatibility farmer store better crafting restauranteer enable',href:'#/install'}];
-function search(query) {const q=query.trim().toLowerCase();const docs=q?searchDocs.filter(d=>localizedSearchText(d.name+' '+d.terms).toLowerCase().includes(q)):searchDocs.slice(0,3);const found=(q?RECIPES.filter(r=>[r.name,r.english,r.instructions,...r.ingredients.map(i=>i.name)].map(localizedSearchText).join(' ').toLowerCase().includes(q)):['fried_egg','pumpkin_soup','pizza'].map(id=>byId.get(id))).slice(0,15);$('#search-results').innerHTML=docs.map(d=>`<a class="search-result category" href="${d.href}"><span>${esc(d.name)}</span><span class="search-arrow">↗</span></a>`).join('')+found.map(r=>`<a class="search-result" href="${recipeUrl(r.id)}">${img(r.icon,'')}<span>${esc(r.name)}<small>${esc(textIngredients(r))}</small></span><span class="search-arrow">↗</span></a>`).join('')+(!docs.length&&!found.length?'<p class="search-no-results">这一页没有找到。试试更短的菜名或食材名称。</p>':'');}
+function search(query) {
+  const q=query.trim().toLowerCase();
+  const docs=q?searchDocs.filter(d=>localizedSearchText(d.name+' '+d.terms).toLowerCase().includes(q)):searchDocs.slice(0,3);
+  const found=(q?RECIPES.filter(r=>[r.name,r.english,r.instructions,r.instructionsEnglish,r.pack,...r.ingredients.flatMap(i=>[i.name,i.english||''])].map(localizedSearchText).join(' ').toLowerCase().includes(q)):['fried_egg','pumpkin_soup','pizza'].map(id=>byId.get(id))).slice(0,15);
+  $('#search-results').innerHTML=docs.map(d=>`<a class="search-result category" href="${d.href}"><span>${esc(d.name)}</span><span class="search-arrow">↗</span></a>`).join('')+found.map(r=>`<a class="search-result" href="${recipeUrl(r.id)}">${img(r.icon,'')}<span>${esc(recipeName(r))}<small>${esc(textIngredients(r))}</small></span><span class="search-arrow">↗</span></a>`).join('')+(!docs.length&&!found.length?'<p class="search-no-results">这一页没有找到。试试更短的菜名或食材名称。</p>':'');
+}
+
 function openSearch() {const d=$('#search-dialog');if(d.open)return;d.showModal();$('#dialog-query').value='';search('');$('#dialog-query').focus();}
 function closeMenu() {$('#sidebar').classList.remove('is-open');$('#nav-shade').hidden=true;$('#menu-toggle').setAttribute('aria-expanded','false');}
 $('#menu-toggle').addEventListener('click',()=>{const open=!$('#sidebar').classList.contains('is-open');$('#sidebar').classList.toggle('is-open',open);$('#nav-shade').hidden=!open;$('#menu-toggle').setAttribute('aria-expanded',String(open));});
@@ -266,7 +335,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLower
 for(const dialog of document.querySelectorAll('dialog'))dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
 document.addEventListener('input',e=>{if(e.target.id==='recipe-query'){catalogState.q=e.target.value;updateCatalog();}if(e.target.closest('#quality-calculator'))updateCalculator();});
 document.addEventListener('change',e=>{if(e.target.id==='recipe-sort'){catalogState.sort=e.target.value;updateCatalog();}if(e.target.closest('#quality-calculator'))updateCalculator();});
-document.addEventListener('click',async e=>{const a=e.target.closest('a');if(a&&$('#search-dialog').open)$('#search-dialog').close();const scroll=e.target.closest('[data-scroll]');if(scroll){e.preventDefault();document.getElementById(scroll.dataset.scroll)?.scrollIntoView({behavior:'smooth'});return;}const filter=e.target.closest('[data-filter]');if(filter){catalogState.tool=filter.dataset.filter;updateCatalog();return;}const view=e.target.closest('[data-view]');if(view){listView=view.dataset.view;updateCatalog();return;}const notebook=e.target.closest('[data-notebook]');if(notebook){notebookTab=notebook.dataset.notebook;updateNotebook();return;}const diagram=e.target.closest('[data-diagram]');if(diagram){const image=$('#large-diagram');image.src=diagram.dataset.diagram;image.alt=diagram.dataset.name+'完整工序图';const probe=new Image();probe.onload=()=>{image.style.width=probe.naturalWidth*3+'px';};probe.src=diagram.dataset.diagram;$('#image-dialog').showModal();return;}const copy=e.target.closest('[data-copy]');if(copy){try{await navigator.clipboard.writeText(copy.dataset.copy);toast('指令已复制');}catch{toast('复制不可用，请选中指令手动复制。');}return;}const action=e.target.closest('[data-action]');if(!action)return;if(action.dataset.action==='save'||action.dataset.action==='cook'){toggleRecord(action.dataset.action,action.dataset.id);return;}if(action.dataset.action==='print'){window.print();return;}if(action.dataset.action==='clear-filters'){catalogState.q='';catalogState.tool='全部';$('#recipe-query').value='';updateCatalog();return;}if(action.dataset.action==='export'){const data={format:'complex-cooking-wiki-notebook',version:1,exportedAt:new Date().toISOString(),saved:[...saved],cooked:[...cooked]};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const href=URL.createObjectURL(blob);const link=document.createElement('a');link.href=href;link.download=window.WIKI_I18N.language==='en'?'complex-cooking-cookbook.json':'复杂料理-料理簿.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),1000);}});
+document.addEventListener('click',async e=>{const a=e.target.closest('a');if(a&&$('#search-dialog').open)$('#search-dialog').close();const scroll=e.target.closest('[data-scroll]');if(scroll){e.preventDefault();document.getElementById(scroll.dataset.scroll)?.scrollIntoView({behavior:'smooth'});return;}const pack=e.target.closest('[data-pack]');if(pack){catalogState.pack=pack.dataset.pack;updateCatalog();return;}const filter=e.target.closest('[data-filter]');if(filter){catalogState.tool=filter.dataset.filter;updateCatalog();return;}const view=e.target.closest('[data-view]');if(view){listView=view.dataset.view;updateCatalog();return;}const notebook=e.target.closest('[data-notebook]');if(notebook){notebookTab=notebook.dataset.notebook;updateNotebook();return;}const diagram=e.target.closest('[data-diagram]');if(diagram){const image=$('#large-diagram');image.src=diagram.dataset.diagram;image.alt=diagram.dataset.name+'完整工序图';const probe=new Image();probe.onload=()=>{image.style.width=probe.naturalWidth*3+'px';};probe.src=diagram.dataset.diagram;$('#image-dialog').showModal();return;}const copy=e.target.closest('[data-copy]');if(copy){try{await navigator.clipboard.writeText(copy.dataset.copy);toast('指令已复制');}catch{toast('复制不可用，请选中指令手动复制。');}return;}const action=e.target.closest('[data-action]');if(!action)return;if(action.dataset.action==='save'||action.dataset.action==='cook'){toggleRecord(action.dataset.action,action.dataset.id);return;}if(action.dataset.action==='print'){window.print();return;}if(action.dataset.action==='clear-filters'){catalogState.q='';catalogState.tool='全部';catalogState.pack='all';$('#recipe-query').value='';updateCatalog();return;}if(action.dataset.action==='export'){const data={format:'complex-cooking-wiki-notebook',version:1,exportedAt:new Date().toISOString(),saved:[...saved],cooked:[...cooked]};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const href=URL.createObjectURL(blob);const link=document.createElement('a');link.href=href;link.download=window.WIKI_I18N.language==='en'?'complex-cooking-cookbook.json':'复杂料理-料理簿.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),1000);}});
 window.addEventListener('storage',e=>{if(e.key==='cc-wiki-saved-v1'||e.key==='cc-wiki-cooked-v1'){saved=readSet('cc-wiki-saved-v1');cooked=readSet('cc-wiki-cooked-v1');syncCounts();if(currentPage==='notebook')updateNotebook();if(currentPage==='recipes')updateCatalog();}});
 window.addEventListener('hashchange',route);
 route();
