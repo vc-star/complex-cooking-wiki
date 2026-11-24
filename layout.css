@@ -113,3 +113,7 @@ html[lang="en"] .global-search{min-width:0}
 .pack-tabs{margin-bottom:0;border-bottom:0;gap:24px}
 .pack-tabs button{font-size:13px}
 .recipe-context{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.7}
+/* Content packs and source-defined ingredient variants use the existing controls. */
+.pack-tabs{flex-wrap:wrap;row-gap:6px}
+.recipe-mode{display:flex;align-items:center;gap:12px;font-size:13px;margin:22px 0;color:var(--green)}
+.recipe-mode select{font:inherit;color:inherit;border:1px solid var(--line);background:transparent;padding:6px 10px}
